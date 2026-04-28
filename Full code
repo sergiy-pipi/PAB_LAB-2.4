@@ -1,0 +1,100 @@
+import time
+from dataclasses import dataclass
+from enum import Enum
+from datetime import datetime
+
+class Currency(Enum):
+    UAH = "Гривня"
+    USD = "Долар"
+
+@dataclass
+class User:
+    name: str
+
+class ExpenseRecord:
+    def __init__(self, description: str, amount: float, payer: User):
+        self.description = description
+        self._amount = amount
+        self.payer = payer
+        self.status = "Active"
+        self.timestamp = None
+
+    # --- Магічні методи відображення ---
+    def __str__(self):
+        return f"Витрата: '{self.description}' на суму {self._amount} (Платник: {self.payer.name})"
+
+    def __repr__(self):
+        return f"ExpenseRecord(amount={self._amount}, desc='{self.description}')"
+
+    # --- Завдання 1: Математика бізнесу ---
+    def __add__(self, other):
+      
+        if isinstance(other, ExpenseRecord):
+            return self._amount + other._amount
+        if isinstance(other, (int, float)):
+            return self._amount + other
+        return TypeError("Непідтримуваний тип для додавання")
+
+    # Порівняння для сортування
+    def __lt__(self, other):
+        return self._amount < other._amount
+
+    # --- Завдання 3: Сценарій "Time-Out" ---
+    def __enter__(self):
+        print(f"\n[System] Відкрито сесію редагування витрати: {self.description}")
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        duration = time.time() - self.start_time
+        # Якщо сесія тривала понад 2 секунди — статус стає Expired
+        if duration > 2:
+            self.status = "Expired"
+            print(f"[System] Час сесії вичерпано ({duration:.2f}с). Статус: Expired")
+        else:
+            print(f"[System] Сесію завершено вчасно ({duration:.2f}с).")
+        
+        if exc_type:
+            print(f"[!] Помилка під час редагування: {exc_val}")
+        return False
+
+class GroupLedger:
+    def __init__(self):
+        self._expenses = []
+
+    def add_expense(self, expense: ExpenseRecord):
+        self._expenses.append(expense)
+
+    # --- Завдання 2: Обмеження ітерації ---
+    def __iter__(self):
+        sorted_expenses = sorted(self._expenses)
+        return iter(sorted_expenses)
+
+# --- Демонстрація роботи ---
+if __name__ == "__main__":
+    user1 = User("Сергій")
+    ledger = GroupLedger()
+
+    ex1 = ExpenseRecord("Вечеря", 500, user1)
+    ex2 = ExpenseRecord("Таксі", 200, user1)
+    ledger.add_expense(ex1)
+    ledger.add_expense(ex2)
+
+    print("--- Перевірка відображення (str/repr) ---")
+    print(ex1) # Викличе __str__
+    print([ex1, ex2]) # Викличе __repr__
+
+    print("\n--- Перевірка додавання (+) ---")
+    total = ex1 + ex2
+    print(f"Загальна сума двох витрат: {total}")
+
+    print("\n--- Перевірка ітерації (сортування за ціною) ---")
+    for item in ledger:
+        print(item)
+
+    print("\n--- Перевірка контекст-менеджера (Time-out) ---")
+    with ex1 as session:
+        print("Редагування даних...")
+        time.sleep(2.1) # Імітація затримки
+    
+    print(f"Фінальний стан витрати: {ex1.status}")
